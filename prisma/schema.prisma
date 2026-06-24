@@ -1,0 +1,69 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  sessions     Session[]
+  repositories Repository[]
+
+  @@index([email])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  // Stores SHA-256 hash of the raw UUID token — raw token is never persisted
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+}
+
+model Repository {
+  id           String    @id @default(cuid())
+  githubId     String
+  owner        String
+  name         String
+  fullName     String
+  // AES-256-GCM encrypted PAT: base64(JSON{ iv, ciphertext, tag })
+  encryptedPat String
+  userId       String
+  lastSyncedAt DateTime?
+  createdAt    DateTime  @default(now())
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  metrics      Metric[]
+
+  // Prevent the same user connecting the same GitHub repo twice
+  @@unique([userId, githubId])
+  @@index([userId])
+}
+
+model Metric {
+  id           String     @id @default(cuid())
+  repoId       String
+  // @db.Date stores date only (no time) — one row per repo per calendar day
+  date         DateTime   @db.Date
+  commits      Int        @default(0)
+  prsOpened    Int        @default(0)
+  prsMerged    Int        @default(0)
+  contributors Int        @default(0)
+  repository   Repository @relation(fields: [repoId], references: [id], onDelete: Cascade)
+
+  // DB-level enforcement of the 1-row-per-day invariant; sync uses upsert
+  @@unique([repoId, date])
+  @@index([repoId, date])
+}

@@ -70,6 +70,8 @@ Key design decisions:
 | DELETE | `/api/auth/logout` | Yes | Invalidates session token |
 | GET | `/api/repos` | Yes | Lists repos for the authed user |
 | POST | `/api/repos/connect` | Yes | Links a GitHub repo via PAT |
+| GET | `/api/repos/search` | Yes | GitHub repo search/autocomplete (uses `GITHUB_PAT`) |
+| POST | `/api/repos/[repoId]/sync` | Yes | Incremental GitHub data sync for one repo |
 | GET | `/api/metrics/[repoId]` | Yes | Commit/PR stats for a repo + date range |
 | GET | `/api/dashboard` | Yes | Aggregated metrics across all user repos |
 
@@ -172,6 +174,59 @@ npm run dev                         # start on http://localhost:3000
 | `GITHUB_PAT` | Yes (dev) | Personal access token for GitHub API calls |
 | `NODE_ENV` | No | Set to `production` to suppress stack traces |
 | `PORT` | No | HTTP port (default: 3000 via Next.js) |
+
+---
+
+## MCP integration
+
+DevPulse uses two MCP servers, configured in `.mcp.json` at the project root.
+
+### Configuration
+
+```json
+// .mcp.json
+{
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PAT}" }
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "${PWD}"]
+    }
+  }
+}
+```
+
+Set `GITHUB_PAT` in your shell environment (or `.env`) before launching Claude Code so the MCP server picks it up automatically.
+
+### GitHub MCP server
+
+Used during development to explore and validate GitHub API responses without writing throw-away scripts:
+
+| MCP tool | Used for |
+|---|---|
+| `search_repositories` | Designed and tested the `/api/repos/search` autocomplete feature |
+| `get_repository` | Validated repo metadata shape before writing `POST /api/repos/connect` |
+| `list_commits` | Verified commit payload structure before writing the incremental sync |
+| `list_pull_requests` | Confirmed PR field names (`created_at`, `merged_at`) used in the sync |
+
+### Runtime feature: repo search autocomplete
+
+The **Connect Repository** form (`src/components/repos/connect-repo-form.tsx`) includes a live search-as-you-type dropdown that queries `GET /api/repos/search?q=<query>`.
+
+The search endpoint (`src/app/api/repos/search/route.ts`) uses the same `GITHUB_PAT` that the GitHub MCP server reads, so they share a single credential and consistent rate limit. This parallels what `search_repositories` does during development — the endpoint is effectively the runtime equivalent of the MCP tool.
+
+- Search is debounced 300 ms (via `src/hooks/use-repo-search.ts`).
+- Selecting a result auto-fills the **Owner** and **Repository** fields.
+- Rate limit: 20 req/min per IP (server-side), plus GitHub's own 5,000 req/hr (authenticated).
+- Gracefully degrades to 60 req/hr unauthenticated if `GITHUB_PAT` is absent.
+
+### Filesystem MCP server
+
+Provides Claude Code with direct read access to the project tree. Useful for referencing `prisma/schema.prisma`, `src/types/index.ts`, and route files while generating code without manual file reads.
 
 ---
 

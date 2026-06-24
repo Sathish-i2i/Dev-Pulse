@@ -1,0 +1,50 @@
+{
+  "name": "dev-pulse",
+  "version": "1.0.0",
+  "description": "Developer analytics dashboard — GitHub metrics for engineering teams",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio",
+    "db:reset": "prisma migrate reset"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0",
+    "@octokit/rest": "^21.0.0",
+    "@prisma/client": "^5.22.0",
+    "bcryptjs": "^2.4.3",
+    "clsx": "^2.1.1",
+    "dotenv": "^17.4.2",
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "recharts": "^2.13.3",
+    "tailwind-merge": "^2.5.4",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.0.0",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitest/coverage-v8": "^2.1.8",
+    "prisma": "^5.22.0",
+    "tailwindcss": "^4.0.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.22.4",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "prisma": {
+    "seed": "npx tsx prisma/seed.ts"
+  },
+  "type": "commonjs"
+}
