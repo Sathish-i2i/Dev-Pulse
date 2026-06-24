@@ -16,7 +16,10 @@ export function generateToken(): string {
 }
 
 export function hashToken(raw: string): string {
-  return crypto.createHash("sha256").update(raw).digest("hex");
+  // SESSION_SECRET is validated at module load (throws if absent/short);
+  // the ! asserts it is non-null for TypeScript, which doesn't propagate
+  // control-flow narrowing from module scope into function bodies.
+  return crypto.createHmac("sha256", SESSION_SECRET!).update(raw).digest("hex");
 }
 
 /**

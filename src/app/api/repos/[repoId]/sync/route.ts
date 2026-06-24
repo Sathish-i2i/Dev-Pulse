@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { decryptPat } from "@/lib/encryption";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { Octokit } from "@octokit/rest";
 
 type RouteContext = { params: Promise<{ repoId: string }> };
@@ -19,6 +20,17 @@ export async function POST(req: Request, ctx: RouteContext): Promise<Response> {
   const authResult = await requireAuth(req);
   if (authResult instanceof Response) return authResult;
   const { user } = authResult;
+
+  // Rate limit per user ID (not IP) — the expensive resource is each user's
+  // GitHub API quota; per-user prevents a single account from hammering sync
+  // regardless of IP rotation.
+  const { allowed, retryAfterSec } = checkRateLimit(user.id, "repo-sync", 3, 60_000);
+  if (!allowed) {
+    return Response.json(
+      { error: "Too many requests" },
+      { status: 429, headers: { "Retry-After": String(retryAfterSec) } }
+    );
+  }
 
   try {
     const { repoId } = await ctx.params;

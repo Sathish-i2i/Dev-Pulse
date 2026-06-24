@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { encryptPat } from "@/lib/encryption";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { connectRepoSchema } from "@/types/index";
 
 async function validateGitHubRepo(
@@ -8,8 +9,9 @@ async function validateGitHubRepo(
   name: string,
   pat: string
 ): Promise<{ githubId: string; fullName: string } | null> {
-  // Allow tests to skip live GitHub API calls
-  if (process.env.SKIP_GITHUB_VALIDATION === "true") {
+  // SKIP_GITHUB_VALIDATION is only honoured outside of production to prevent
+  // a misconfigured production deployment from bypassing GitHub validation.
+  if (process.env.SKIP_GITHUB_VALIDATION === "true" && process.env.NODE_ENV !== "production") {
     return { githubId: `${owner}-${name}-stub`, fullName: `${owner}/${name}` };
   }
 
@@ -33,6 +35,19 @@ export async function POST(req: Request): Promise<Response> {
   const authResult = await requireAuth(req);
   if (authResult instanceof Response) return authResult;
   const { user } = authResult;
+
+  const { allowed, retryAfterSec } = checkRateLimit(
+    getClientIp(req),
+    "repo-connect",
+    5,
+    60_000
+  );
+  if (!allowed) {
+    return Response.json(
+      { error: "Too many requests" },
+      { status: 429, headers: { "Retry-After": String(retryAfterSec) } }
+    );
+  }
 
   try {
     const body = await req.json();

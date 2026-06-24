@@ -7,6 +7,19 @@ if (!keyHex || Buffer.from(keyHex, "hex").length !== 32) {
   );
 }
 
+// Detect the all-zeros placeholder from .env.example — a predictable key
+// completely undermines AES-256-GCM confidentiality for stored PATs.
+if (keyHex === "0".repeat(64)) {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "Fatal: PAT_ENCRYPTION_KEY is the default all-zeros value. Generate a real key: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
+    );
+  }
+  console.warn(
+    "[devpulse] WARNING: PAT_ENCRYPTION_KEY is all zeros. Rotate before deploying to production."
+  );
+}
+
 const ENCRYPTION_KEY = Buffer.from(keyHex, "hex");
 
 type EncryptedBlob = {

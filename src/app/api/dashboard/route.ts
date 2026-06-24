@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { metricsQuerySchema } from "@/types/index";
 import type { DashboardSummary, MetricRow, DashboardRepoTotal } from "@/types/index";
 
@@ -7,6 +8,14 @@ export async function GET(req: Request): Promise<Response> {
   const authResult = await requireAuth(req);
   if (authResult instanceof Response) return authResult;
   const { user } = authResult;
+
+  const { allowed, retryAfterSec } = checkRateLimit(getClientIp(req), "dashboard", 30, 60_000);
+  if (!allowed) {
+    return Response.json(
+      { error: "Too many requests" },
+      { status: 429, headers: { "Retry-After": String(retryAfterSec) } }
+    );
+  }
 
   try {
     const url = new URL(req.url);

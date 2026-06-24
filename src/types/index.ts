@@ -14,8 +14,24 @@ export const loginSchema = z.object({
 });
 
 export const connectRepoSchema = z.object({
-  owner: z.string().min(1).max(100),
-  name: z.string().min(1).max(100),
+  // Whitelist matches GitHub's actual naming rules and prevents path traversal
+  // in the URL constructed for GitHub API validation.
+  owner: z
+    .string()
+    .min(1)
+    .max(39)
+    .regex(
+      /^[a-zA-Z0-9][a-zA-Z0-9-]*$/,
+      "Invalid owner: alphanumeric and hyphens only, must start with alphanumeric"
+    ),
+  name: z
+    .string()
+    .min(1)
+    .max(100)
+    .regex(
+      /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/,
+      "Invalid repo name: alphanumeric, dots, underscores, hyphens only"
+    ),
   pat: z.string().min(10, "PAT must be at least 10 characters").max(255),
 });
 
